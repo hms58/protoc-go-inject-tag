@@ -66,8 +66,16 @@ func injectTag(contents []byte, area textArea) (injected []byte) {
 	expr := make([]byte, area.End-area.Start)
 	copy(expr, contents[area.Start-1:area.End-1])
 	cti := newTagItems(area.CurrentTag)
-	iti := newTagItems(area.InjectTag)
-	ti := cti.override(iti)
+	if area.InjectTag != "" {
+		it := newTagItems(area.InjectTag)
+		cti = cti.override(it)
+	}
+	if area.DefaultTag != "" {
+		dt := newTagItems(area.DefaultTag)
+		cti = cti.override(dt)
+	}
+	//ti := cti.override(nti)
+	ti := cti
 	expr = rInject.ReplaceAll(expr, []byte(fmt.Sprintf("`%s`", ti.format())))
 	injected = append(injected, contents[:area.Start-1]...)
 	injected = append(injected, expr...)

@@ -22,9 +22,10 @@ type textArea struct {
 	End        int
 	CurrentTag string
 	InjectTag  string
+	DefaultTag string
 }
 
-func parseFile(inputPath string, xxxSkip []string) (areas []textArea, err error) {
+func parseFile(inputPath string, xxxSkip []string, defaultTag string) (areas []textArea, err error) {
 	logf("parsing file %q for inject tag comments", inputPath)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, inputPath, nil, parser.ParseComments)
@@ -68,6 +69,10 @@ func parseFile(inputPath string, xxxSkip []string) (areas []textArea, err error)
 			}
 		}
 
+		defTagMap := map[string]textArea{}
+		getTagKey := func(field *ast.Field) string {
+			return fmt.Sprintf("%d_%d", int(field.Pos()), int(field.End()))
+		}
 		for _, field := range structDecl.Fields.List {
 			// skip if field has no doc
 			if len(field.Names) > 0 {
@@ -81,6 +86,21 @@ func parseFile(inputPath string, xxxSkip []string) (areas []textArea, err error)
 						InjectTag:  builder.String(),
 					}
 					areas = append(areas, area)
+				} else if defaultTag != "" && !strings.HasPrefix(name, "XXX") && field.Tag != nil &&
+					field.Tag.Value != "" {
+					currentTag := field.Tag.Value
+					tis := newTagItems(currentTag[1 : len(currentTag)-1])
+					fieldName := getTagFieldName(tis)
+					if fieldName != "" {
+						area := textArea{
+							Start:      int(field.Pos()),
+							End:        int(field.End()),
+							CurrentTag: currentTag[1 : len(currentTag)-1],
+							DefaultTag: strings.ReplaceAll(defaultTag, "{1}", fieldName),
+						}
+						defTagMap[getTagKey(field)] = area
+						areas = append(areas, area)
+					}
 				}
 			}
 			if field.Doc == nil {
@@ -98,11 +118,17 @@ func parseFile(inputPath string, xxxSkip []string) (areas []textArea, err error)
 					CurrentTag: currentTag[1 : len(currentTag)-1],
 					InjectTag:  tag,
 				}
+				if val, ok := defTagMap[getTagKey(field)]; ok {
+					area.DefaultTag = val.DefaultTag
+				}
 				areas = append(areas, area)
 			}
 		}
 	}
 	logf("parsed file %q, number of fields to inject custom tags: %d", inputPath, len(areas))
+	if defaultTag != "" {
+		logf("default tag %s", defaultTag)
+	}
 	return
 }
 
@@ -135,4 +161,17 @@ func writeFile(inputPath string, areas []textArea) (err error) {
 		logf("file %q is injected with custom tags", inputPath)
 	}
 	return
+}
+
+func getTagFieldName(tags tagItems) string {
+	for _, ti := range tags {
+		if ti.key != "json" {
+			continue
+		}
+		vals := strings.Split(ti.value, ",")
+		if len(vals) > 0 {
+			return strings.Trim(vals[0], "\" \t")
+		}
+	}
+	return ""
 }
