@@ -66,13 +66,13 @@ func injectTag(contents []byte, area textArea) (injected []byte) {
 	expr := make([]byte, area.End-area.Start)
 	copy(expr, contents[area.Start-1:area.End-1])
 	cti := newTagItems(area.CurrentTag)
-	if area.InjectTag != "" {
-		it := newTagItems(area.InjectTag)
-		cti = cti.override(it)
-	}
 	if area.DefaultTag != "" {
 		dt := newTagItems(area.DefaultTag)
 		cti = cti.override(dt)
+	}
+	if area.InjectTag != "" {
+		it := newTagItems(area.InjectTag)
+		cti = cti.override(it)
 	}
 	//ti := cti.override(nti)
 	ti := cti
