@@ -69,3 +69,7 @@ To skip the tag for the generated XXX_* fields, use
 `-XXX_skip=yaml,xml` flag.
 
 To enable verbose logging, use `-verbose`
+
+支持 -add_tag ，全局添加tag
+
+protoc-go-inject-tag -input=./test.pb.go -add_tag='form:"{1},omitempty"'
